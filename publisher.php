@@ -3,13 +3,15 @@
 include(__DIR__ . '/config/config.php');
 
 use PhpAmqpLib\Connection\AMQPStreamConnection;
-use PhpAmqpLib\Exchange\AMQPExchangeType;
-use PhpAmqpLib\Message\AMQPMessage;
+use App\Producer\Producer;
 
 $count = (int)$argv[1];
 
+$connection = new AMQPStreamConnection(HOST, PORT, USER, PASS, VHOST);
+$producer = new Producer($connection, QUEUE, EXCHANGE);
+
 if ($argv[1] == 'quit') {
-    send($argv[1]);
+    $producer->publish($argv[1]);
     exit;
 }
 
@@ -18,22 +20,6 @@ if ($count <= 0) {
     exit;
 } else {
     $messageBody = json_encode(['count' => $argv[1]]);
-    send($messageBody);
+    $producer->publish($messageBody);
     exit;
-}
-
-function send(string $messageBody)
-{
-    $connection = new AMQPStreamConnection(HOST, PORT, USER, PASS, VHOST);
-    $channel = $connection->channel();
-
-    $channel->queue_declare(QUEUE, false, true, false, false);
-    $channel->exchange_declare(EXCHANGE, AMQPExchangeType::DIRECT, false, true, false);
-    $channel->queue_bind(QUEUE, EXCHANGE);
-
-    $message = new AMQPMessage($messageBody, array('content_type' => 'text/plain', 'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT));
-    $channel->basic_publish($message, EXCHANGE);
-
-    $channel->close();
-    $connection->close();
 }
